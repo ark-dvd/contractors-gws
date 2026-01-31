@@ -322,8 +322,8 @@ export default function TestimonialsTab() {
     setError(null)
     try {
       const [testimonialsData, projectsData] = await Promise.all([
-        adminFetch<Testimonial[]>('/api/admin/testimonials'),
-        adminFetch<Project[]>('/api/admin/projects'),
+        adminFetch<Testimonial[]>('testimonials'),
+        adminFetch<Project[]>('projects'),
       ])
       setTestimonials(testimonialsData)
       setProjects(projectsData)
@@ -424,10 +424,10 @@ export default function TestimonialsTab() {
       }
 
       if (editingId) {
-        await adminPut('/api/admin/testimonials', { id: editingId, ...payload })
+        await adminPut('testimonials', { id: editingId, ...payload })
         setToast({ message: 'Testimonial updated successfully', type: 'success' })
       } else {
-        await adminPost('/api/admin/testimonials', payload)
+        await adminPost('testimonials', payload)
         setToast({ message: 'Testimonial created successfully', type: 'success' })
       }
 
@@ -449,7 +449,7 @@ export default function TestimonialsTab() {
     setIsDeleting(true)
 
     try {
-      await adminDelete('/api/admin/testimonials', deleteId)
+      await adminDelete('testimonials', deleteId)
       setToast({ message: 'Testimonial deleted successfully', type: 'success' })
       setDeleteId(null)
       fetchData()

@@ -392,7 +392,7 @@ export default function SiteSettingsTab() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await adminFetch<SiteSettings>('/api/admin/settings')
+      const data = await adminFetch<SiteSettings>('settings')
       const merged = { ...DEFAULT_SETTINGS, ...data }
       setSettings(merged)
       setOriginalSettings(merged)
@@ -492,7 +492,7 @@ export default function SiteSettingsTab() {
   const handleSaveAll = async () => {
     setIsSaving(true)
     try {
-      await adminPut('/api/admin/settings', settings)
+      await adminPut('settings', settings)
       setOriginalSettings(settings)
       setToast({ message: 'All settings saved successfully', type: 'success' })
     } catch (e) {
@@ -509,7 +509,7 @@ export default function SiteSettingsTab() {
   const handleSaveSection = async (sectionId: SectionId) => {
     setSavingSection(sectionId)
     try {
-      await adminPut('/api/admin/settings', settings)
+      await adminPut('settings', settings)
       setOriginalSettings(settings)
       setToast({
         message: `${SECTIONS.find((s) => s.id === sectionId)?.name} saved`,

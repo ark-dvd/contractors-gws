@@ -526,8 +526,8 @@ export default function ActiveJobsTab() {
     setError(null)
     try {
       const [jobsData, servicesData] = await Promise.all([
-        adminFetch<Job[]>('/api/admin/jobs'),
-        adminFetch<Service[]>('/api/admin/services'),
+        adminFetch<Job[]>('jobs'),
+        adminFetch<Service[]>('services'),
       ])
       setJobs(jobsData)
       setServices(servicesData)
@@ -662,10 +662,10 @@ export default function ActiveJobsTab() {
       }
 
       if (editingId) {
-        await adminPut('/api/admin/jobs', { id: editingId, ...payload })
+        await adminPut('jobs', { id: editingId, ...payload })
         setToast({ message: 'Job updated successfully', type: 'success' })
       } else {
-        await adminPost('/api/admin/jobs', payload)
+        await adminPost('jobs', payload)
         setToast({ message: 'Job created successfully', type: 'success' })
       }
 
@@ -698,7 +698,7 @@ export default function ActiveJobsTab() {
         payload.actualCompletionDate = new Date().toISOString().split('T')[0]
       }
 
-      await adminPut('/api/admin/jobs', payload)
+      await adminPut('jobs', payload)
       setToast({
         message: `Advanced to ${STAGES[newStage - 1].name}`,
         type: 'success',
@@ -720,7 +720,7 @@ export default function ActiveJobsTab() {
     setIsDeleting(true)
 
     try {
-      await adminDelete('/api/admin/jobs', deleteId)
+      await adminDelete('jobs', deleteId)
       setToast({ message: 'Job deleted successfully', type: 'success' })
       setDeleteId(null)
       fetchData()
