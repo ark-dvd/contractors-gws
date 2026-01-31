@@ -1,0 +1,2 @@
+// Sanity schemas placeholder
+export {}
