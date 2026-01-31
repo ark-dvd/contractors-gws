@@ -31,13 +31,20 @@ export default function PublicLayout({
 
   return (
     <>
+      {/* Skip to content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-amber-500 focus:text-white focus:rounded-lg focus:font-semibold"
+      >
+        Skip to main content
+      </a>
       <DemoModeBanner isDemo={isDemo} />
       <Header
         logo={logoUrl}
         companyName={companyName}
         phone={settings.phone}
       />
-      <main className="min-h-screen">{children}</main>
+      <main id="main-content" className="min-h-screen" role="main">{children}</main>
       <Footer
         logo={logoUrl}
         companyName={companyName}

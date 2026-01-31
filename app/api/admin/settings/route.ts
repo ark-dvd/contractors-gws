@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/middleware'
 import { getSanityWriteClient, getSanityClient } from '@/lib/sanity'
 import { validate, SiteSettingsInputSchema } from '@/lib/validations'
+import { withRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 type SiteSettingsInput = z.output<typeof SiteSettingsInputSchema>
@@ -51,6 +52,9 @@ function buildFields(d: SiteSettingsInput) {
 }
 
 export async function GET(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 
@@ -102,6 +106,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 
@@ -124,6 +131,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 

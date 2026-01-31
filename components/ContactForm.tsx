@@ -76,8 +76,8 @@ export default function ContactForm({ services }: ContactFormProps) {
       // that sends email via a service like SendGrid, Formspree, or saves to DB
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      // For now, just log the submission
-      console.log('Form submitted:', formData)
+      // TODO: In production, POST to an API route that handles email/storage
+      // Form data is ready to be sent: formData
 
       setSubmitStatus('success')
       setFormData({

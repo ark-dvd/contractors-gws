@@ -11,10 +11,12 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    X-DNS-Prefetch-Control = "on"
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.sanity.io https://images.unsplash.com https://lh3.googleusercontent.com; font-src 'self'; connect-src 'self' https://*.sanity.io; media-src 'self' https://cdn.sanity.io; frame-src 'none';"
 
 [[headers]]
   for = "/api/*"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/middleware'
 import { getSanityWriteClient, getSanityClient } from '@/lib/sanity'
 import { validate, ServiceInputSchema } from '@/lib/validations'
+import { withRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
 import { z } from 'zod'
 
 type ServiceInput = z.output<typeof ServiceInputSchema>
@@ -34,6 +35,9 @@ function buildFields(d: ServiceInput) {
 }
 
 export async function GET(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 
@@ -64,6 +68,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 
@@ -86,6 +93,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 
@@ -111,6 +121,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const rateLimitError = withRateLimit(request, RATE_LIMITS.admin)
+  if (rateLimitError) return rateLimitError
+
   const auth = await requireAdmin(request)
   if ('error' in auth) return auth.error
 
