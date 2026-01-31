@@ -17,6 +17,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import AdminDashboard from '@/components/admin/AdminDashboard'
+import ProjectsTab from '@/components/admin/ProjectsTab'
 
 // Tab configuration
 const TABS = [
@@ -150,7 +151,7 @@ function AdminShell() {
       case 'dashboard':
         return <AdminDashboard onNavigate={handleNavigate} />
       case 'projects':
-        return <PlaceholderTab name="Projects Management" />
+        return <ProjectsTab />
       case 'services':
         return <PlaceholderTab name="Services Management" />
       case 'testimonials':
