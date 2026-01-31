@@ -20,6 +20,7 @@ import AdminDashboard from '@/components/admin/AdminDashboard'
 import ProjectsTab from '@/components/admin/ProjectsTab'
 import ServicesTab from '@/components/admin/ServicesTab'
 import TestimonialsTab from '@/components/admin/TestimonialsTab'
+import ActiveJobsTab from '@/components/admin/ActiveJobsTab'
 
 // Tab configuration
 const TABS = [
@@ -159,7 +160,7 @@ function AdminShell() {
       case 'testimonials':
         return <TestimonialsTab />
       case 'jobs':
-        return <PlaceholderTab name="Active Jobs Tracker" />
+        return <ActiveJobsTab />
       case 'settings':
         return <PlaceholderTab name="Site Settings" />
       default:
