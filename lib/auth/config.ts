@@ -5,7 +5,6 @@ import GoogleProvider from 'next-auth/providers/google'
 // Store lowercase for normalized comparison
 const ALLOWED_ADMIN_EMAILS: string[] = [
   'arik@daflash.com',
-  'Arik@daflash.com',
 ]
 
 function normalizeEmail(email: string | null | undefined): string {
@@ -27,10 +26,7 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user }) {
-      console.log('AUTH DEBUG: Google returned email:', user.email)
-      const allowed = isAllowedAdmin(user.email)
-      console.log('AUTH DEBUG: isAllowedAdmin result:', allowed)
-      if (!allowed) {
+      if (!isAllowedAdmin(user.email)) {
         console.warn('Admin login denied:', user.email)
         return false
       }
