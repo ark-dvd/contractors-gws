@@ -84,20 +84,47 @@ export async function adminDelete(endpoint: string, id: string): Promise<void> {
   }
 }
 
+// Client-side direct upload to Sanity (bypasses Netlify size limits)
 export async function adminUpload(file: File): Promise<{ assetId: string; url: string }> {
-  const formData = new FormData()
-  formData.append('file', file)
+  console.log('[adminUpload] Starting upload for:', file.name, 'size:', file.size)
 
-  const res = await fetch('/api/admin/upload', {
-    method: 'POST',
+  // Get upload credentials from our API (verifies admin auth)
+  const credRes = await fetch('/api/admin/upload-credentials', {
     credentials: 'include',
-    body: formData,
   })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new AdminAPIError(err.error || `Upload failed: ${res.status}`, res.status)
+  if (!credRes.ok) {
+    const err = await credRes.json().catch(() => ({}))
+    throw new AdminAPIError(err.error || 'Failed to get upload credentials', credRes.status)
   }
 
-  return res.json()
+  const { projectId, dataset, token } = await credRes.json()
+  console.log('[adminUpload] Got credentials, uploading directly to Sanity...')
+
+  // Upload directly to Sanity API (bypasses Netlify)
+  const assetType = file.type.startsWith('image/') ? 'images' : 'files'
+  const uploadUrl = `https://${projectId}.api.sanity.io/v2024-01-01/assets/${assetType}/${dataset}`
+
+  const uploadRes = await fetch(uploadUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': file.type,
+    },
+    body: file,
+  })
+
+  if (!uploadRes.ok) {
+    const errText = await uploadRes.text()
+    console.error('[adminUpload] Sanity upload failed:', uploadRes.status, errText)
+    throw new AdminAPIError(`Sanity upload failed: ${uploadRes.status}`, uploadRes.status)
+  }
+
+  const result = await uploadRes.json()
+  console.log('[adminUpload] Upload successful:', result.document._id)
+
+  return {
+    assetId: result.document._id,
+    url: result.document.url,
+  }
 }
