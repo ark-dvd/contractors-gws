@@ -151,8 +151,9 @@ export interface SiteSettings {
   heroHeadline?: string
   heroSubheadline?: string
   heroMediaType?: 'images' | 'video'
-  heroImages?: SanityImage[]
+  heroImages?: (SanityImage & { url?: string })[]
   heroVideo?: { asset?: { _ref: string } }
+  heroVideoUrl?: string
   contractorName?: string
   contractorTitle?: string
   contractorPhoto?: SanityImage
@@ -786,8 +787,14 @@ export async function getSiteSettings(): Promise<SiteSettings> {
         heroHeadline,
         heroSubheadline,
         heroMediaType,
-        heroImages,
-        heroVideo,
+        heroImages[] {
+          _key,
+          alt,
+          "url": asset->url,
+          asset { _ref }
+        },
+        "heroVideoUrl": heroVideo.asset->url,
+        heroVideo { asset { _ref } },
         contractorName,
         contractorTitle,
         contractorPhoto,

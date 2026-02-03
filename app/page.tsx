@@ -38,16 +38,18 @@ export default async function HomePage() {
   // Parse stats from settings
   const stats = settings.aboutStats || []
 
-  // Transform hero images
+  // Transform hero images - use direct URL from query if available, fallback to helper
   const heroImages = settings.heroImages?.map((img) => ({
-    url: sanityImageUrl(img) || '',
+    url: img.url || sanityImageUrl(img) || '',
     alt: img.alt || '',
   })).filter((img) => img.url) || []
 
-  // Get hero video URL (simplified - would need proper video URL handling)
-  const heroVideoUrl = settings.heroVideo?.asset?._ref
-    ? `https://cdn.sanity.io/files/${process.env.NEXT_PUBLIC_SANITY_PROJECT_ID}/${process.env.NEXT_PUBLIC_SANITY_DATASET || 'production'}/${settings.heroVideo.asset._ref.replace('file-', '').replace('-mp4', '.mp4')}`
-    : undefined
+  // Get hero video URL - use direct URL from GROQ query
+  const heroVideoUrl = settings.heroVideoUrl || undefined
+
+  // Debug log for video
+  console.log('[Homepage] heroMediaType:', settings.heroMediaType)
+  console.log('[Homepage] heroVideoUrl:', heroVideoUrl)
 
   // Transform photo URL
   const photoUrl = sanityImageUrl(settings.contractorPhoto)
