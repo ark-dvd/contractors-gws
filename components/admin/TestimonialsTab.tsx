@@ -301,6 +301,7 @@ export default function TestimonialsTab() {
     relatedProjectId: '',
     date: new Date().toISOString().split('T')[0],
     clientPhoto: '',
+    clientPhotoAssetId: '', // Track new upload asset ID separately
     featuredOnHomepage: false,
     showOnWebsite: true,
     displayOrder: 0,
@@ -363,6 +364,7 @@ export default function TestimonialsTab() {
       relatedProjectId: '',
       date: new Date().toISOString().split('T')[0],
       clientPhoto: '',
+      clientPhotoAssetId: '',
       featuredOnHomepage: false,
       showOnWebsite: true,
       displayOrder: 0,
@@ -389,6 +391,7 @@ export default function TestimonialsTab() {
         ? new Date(testimonial.date).toISOString().split('T')[0]
         : new Date().toISOString().split('T')[0],
       clientPhoto: testimonial.clientPhoto || '',
+      clientPhotoAssetId: '', // No new upload yet - only set when user uploads new photo
       featuredOnHomepage: testimonial.featuredOnHomepage,
       showOnWebsite: testimonial.showOnWebsite,
       displayOrder: testimonial.displayOrder || 0,
@@ -409,7 +412,8 @@ export default function TestimonialsTab() {
     setIsSaving(true)
 
     try {
-      const payload = {
+      // Build payload WITHOUT image fields - only add them if new uploads occurred
+      const payload: Record<string, unknown> = {
         clientName: formData.clientName,
         clientLocation: formData.clientLocation || undefined,
         quote: formData.quote,
@@ -417,10 +421,15 @@ export default function TestimonialsTab() {
         projectType: formData.projectType || undefined,
         relatedProjectId: formData.relatedProjectId || undefined,
         date: formData.date,
-        clientPhoto: formData.clientPhoto || undefined,
         featuredOnHomepage: formData.featuredOnHomepage,
         showOnWebsite: formData.showOnWebsite,
         displayOrder: formData.displayOrder,
+      }
+
+      // CRITICAL: Only include clientPhoto if a NEW upload occurred
+      // Empty assetId means no new upload - don't send field at all to preserve existing
+      if (formData.clientPhotoAssetId) {
+        payload.clientPhoto = formData.clientPhotoAssetId
       }
 
       if (editingId) {
@@ -670,10 +679,18 @@ export default function TestimonialsTab() {
           <ImageUpload
             value={formData.clientPhoto}
             onUpload={(assetId, url) =>
-              setFormData((prev) => ({ ...prev, clientPhoto: url }))
+              setFormData((prev) => ({
+                ...prev,
+                clientPhoto: url,
+                clientPhotoAssetId: assetId // Track new upload
+              }))
             }
             onRemove={() =>
-              setFormData((prev) => ({ ...prev, clientPhoto: '' }))
+              setFormData((prev) => ({
+                ...prev,
+                clientPhoto: '',
+                clientPhotoAssetId: '' // Clear both when removing
+              }))
             }
             label="Client Photo"
             className="max-w-md"

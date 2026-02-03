@@ -397,7 +397,8 @@ export default function ProjectsTab() {
 
     setIsSaving(true)
     try {
-      const payload = {
+      // Build payload WITHOUT image fields - only add them if new uploads occurred
+      const payload: Record<string, unknown> = {
         _id: formData._id,
         title: formData.title,
         slug: formData.slug,
@@ -417,12 +418,23 @@ export default function ProjectsTab() {
         description: formData.description,
         clientTestimonial: formData.clientTestimonial,
         clientName: formData.clientName,
-        heroImage: formData.heroImage || undefined,
-        beforeImage: formData.beforeImage || undefined,
-        gallery: formData.gallery.map(g => g.assetId || undefined).filter(Boolean),
         videoUrl: formData.videoUrl,
         seoTitle: formData.seoTitle,
         seoDescription: formData.seoDescription,
+      }
+
+      // CRITICAL: Only include image fields if NEW uploads occurred
+      // Empty string means no new upload - don't send field at all to preserve existing
+      if (formData.heroImage) {
+        payload.heroImage = formData.heroImage
+      }
+      if (formData.beforeImage) {
+        payload.beforeImage = formData.beforeImage
+      }
+      // Only include gallery items that have new asset IDs
+      const newGalleryAssets = formData.gallery.map(g => g.assetId).filter(Boolean)
+      if (newGalleryAssets.length > 0) {
+        payload.gallery = newGalleryAssets
       }
 
       if (formData._id) {

@@ -369,6 +369,15 @@ function SettingsSkeleton() {
   )
 }
 
+// Track new media uploads (asset IDs) separately from existing URLs
+interface NewMediaUploads {
+  contractorPhoto?: string
+  logo?: string
+  favicon?: string
+  heroVideo?: string
+  heroImages?: string[] // Array of new asset IDs for hero images
+}
+
 export default function SiteSettingsTab() {
   // State
   const [settings, setSettings] = useState<SiteSettings>(DEFAULT_SETTINGS)
@@ -378,6 +387,9 @@ export default function SiteSettingsTab() {
   const [isSaving, setIsSaving] = useState(false)
   const [savingSection, setSavingSection] = useState<SectionId | null>(null)
   const [settingsExist, setSettingsExist] = useState(false)
+
+  // Track NEW media uploads - only these get sent to backend
+  const [newMediaUploads, setNewMediaUploads] = useState<NewMediaUploads>({})
 
   // Accordion state - hero expanded by default
   const [openSections, setOpenSections] = useState<Set<SectionId>>(() => new Set<SectionId>(['hero']))
@@ -400,12 +412,14 @@ export default function SiteSettingsTab() {
       const merged = { ...DEFAULT_SETTINGS, ...data }
       setSettings(merged)
       setOriginalSettings(merged)
+      setNewMediaUploads({}) // Reset new uploads tracking
     } catch (e) {
       // Settings might not exist yet, that's OK
       if (e instanceof Error && e.message.includes('404')) {
         setSettingsExist(false)
         setSettings(DEFAULT_SETTINGS)
         setOriginalSettings(DEFAULT_SETTINGS)
+        setNewMediaUploads({}) // Reset new uploads tracking
       } else {
         setError(e instanceof Error ? e.message : 'Failed to load settings')
       }
@@ -493,18 +507,78 @@ export default function SiteSettingsTab() {
     })
   }
 
+  // Build payload that only includes media fields when new uploads occurred
+  const buildPayload = () => {
+    // Start with non-media fields
+    const payload: Record<string, unknown> = {
+      _id: settings._id,
+      // Hero Section (text fields only - media handled separately)
+      heroMediaType: settings.heroMediaType,
+      heroHeadline: settings.heroHeadline,
+      heroSubheadline: settings.heroSubheadline,
+      // About / Company (text fields only)
+      contractorName: settings.contractorName,
+      contractorTitle: settings.contractorTitle,
+      aboutHeadline: settings.aboutHeadline,
+      aboutText: settings.aboutText,
+      aboutStats: settings.aboutStats,
+      // Contact
+      phone: settings.phone,
+      email: settings.email,
+      address: settings.address,
+      serviceArea: settings.serviceArea,
+      officeHours: settings.officeHours,
+      // Social Media
+      instagram: settings.instagram,
+      facebook: settings.facebook,
+      linkedin: settings.linkedin,
+      youtube: settings.youtube,
+      yelp: settings.yelp,
+      google: settings.google,
+      houzz: settings.houzz,
+      nextdoor: settings.nextdoor,
+      // Legal
+      licenseNumber: settings.licenseNumber,
+      licenseState: settings.licenseState,
+      insuranceInfo: settings.insuranceInfo,
+      bondInfo: settings.bondInfo,
+    }
+
+    // CRITICAL: Only include media fields if NEW uploads occurred
+    // Don't send existing URLs - backend will preserve existing media
+    if (newMediaUploads.heroVideo) {
+      payload.heroVideo = newMediaUploads.heroVideo
+    }
+    if (newMediaUploads.heroImages && newMediaUploads.heroImages.length > 0) {
+      payload.heroImages = newMediaUploads.heroImages
+    }
+    if (newMediaUploads.contractorPhoto) {
+      payload.contractorPhoto = newMediaUploads.contractorPhoto
+    }
+    if (newMediaUploads.logo) {
+      payload.logo = newMediaUploads.logo
+    }
+    if (newMediaUploads.favicon) {
+      payload.favicon = newMediaUploads.favicon
+    }
+
+    return payload
+  }
+
   // Save all settings
   const handleSaveAll = async () => {
     setIsSaving(true)
     try {
+      const payload = buildPayload()
       // Use POST for first-time creation, PUT for updates
       if (settingsExist) {
-        await adminPut('settings', settings)
+        await adminPut('settings', payload)
       } else {
-        await adminPost('settings', settings)
+        await adminPost('settings', payload)
         setSettingsExist(true) // Now settings exist
       }
       setOriginalSettings(settings)
+      setNewMediaUploads({}) // Reset new uploads tracking after successful save
       setToast({ message: 'All settings saved successfully', type: 'success' })
     } catch (e) {
       setToast({
@@ -520,14 +594,16 @@ export default function SiteSettingsTab() {
   const handleSaveSection = async (sectionId: SectionId) => {
     setSavingSection(sectionId)
     try {
+      const payload = buildPayload()
       // Use POST for first-time creation, PUT for updates
       if (settingsExist) {
-        await adminPut('settings', settings)
+        await adminPut('settings', payload)
       } else {
-        await adminPost('settings', settings)
+        await adminPost('settings', payload)
         setSettingsExist(true) // Now settings exist
       }
       setOriginalSettings(settings)
+      setNewMediaUploads({}) // Reset new uploads tracking after successful save
       setToast({
         message: `${SECTIONS.find((s) => s.id === sectionId)?.name} saved`,
         type: 'success',
@@ -772,6 +848,11 @@ export default function SiteSettingsTab() {
                   ...prev,
                   heroImages: [...prev.heroImages, { url, alt: '' }],
                 }))
+                // Track new upload asset ID
+                setNewMediaUploads((prev) => ({
+                  ...prev,
+                  heroImages: [...(prev.heroImages || []), assetId],
+                }))
               }}
               onRemove={() => {}}
               label="Add Hero Image"
@@ -814,6 +895,8 @@ export default function SiteSettingsTab() {
                 value={null}
                 onUpload={(assetId, url) => {
                   setSettings((prev) => ({ ...prev, heroVideoUrl: url }))
+                  // Track new upload asset ID
+                  setNewMediaUploads((prev) => ({ ...prev, heroVideo: assetId }))
                 }}
                 onRemove={() => {}}
                 label="Upload Hero Video"
@@ -900,9 +983,11 @@ export default function SiteSettingsTab() {
 
         <ImageUpload
           value={settings.contractorPhoto || null}
-          onUpload={(assetId, url) =>
+          onUpload={(assetId, url) => {
             setSettings((prev) => ({ ...prev, contractorPhoto: url }))
-          }
+            // Track new upload asset ID
+            setNewMediaUploads((prev) => ({ ...prev, contractorPhoto: assetId }))
+          }}
           onRemove={() => setSettings((prev) => ({ ...prev, contractorPhoto: '' }))}
           label="Photo (Headshot or Team)"
           className="max-w-md"
@@ -1108,9 +1193,11 @@ export default function SiteSettingsTab() {
           <div>
             <ImageUpload
               value={settings.logo || null}
-              onUpload={(assetId, url) =>
+              onUpload={(assetId, url) => {
                 setSettings((prev) => ({ ...prev, logo: url }))
-              }
+                // Track new upload asset ID
+                setNewMediaUploads((prev) => ({ ...prev, logo: assetId }))
+              }}
               onRemove={() => setSettings((prev) => ({ ...prev, logo: '' }))}
               label="Logo"
             />
@@ -1134,9 +1221,11 @@ export default function SiteSettingsTab() {
           <div>
             <ImageUpload
               value={settings.favicon || null}
-              onUpload={(assetId, url) =>
+              onUpload={(assetId, url) => {
                 setSettings((prev) => ({ ...prev, favicon: url }))
-              }
+                // Track new upload asset ID
+                setNewMediaUploads((prev) => ({ ...prev, favicon: assetId }))
+              }}
               onRemove={() => setSettings((prev) => ({ ...prev, favicon: '' }))}
               label="Favicon"
             />
