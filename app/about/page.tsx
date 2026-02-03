@@ -1,9 +1,6 @@
 import { Metadata } from 'next'
 import Image from 'next/image'
 import {
-
-// Revalidate every 60 seconds (ISR)
-export const revalidate = 60
   Wrench,
   Shield,
   Clock,
@@ -17,6 +14,9 @@ export const revalidate = 60
 import { getSiteSettings } from '@/lib/data-fetchers'
 import { sanityImageUrl } from '@/lib/sanity-helpers'
 import CTASection from '@/components/CTASection'
+
+// Revalidate every 60 seconds (ISR)
+export const revalidate = 60
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings()
