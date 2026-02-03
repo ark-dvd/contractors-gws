@@ -30,6 +30,7 @@ async function handleResponse<T>(res: Response): Promise<T> {
 // LEADS
 // ============================================
 
+// PHASE 2 (A3): status is now string - validated against settings.pipelineStages at API layer
 export interface Lead {
   _id: string
   _createdAt?: string
@@ -41,7 +42,7 @@ export interface Lead {
   serviceType?: string
   estimatedValue?: number
   priority: 'high' | 'medium' | 'low'
-  status: 'new' | 'contacted' | 'site_visit' | 'quoted' | 'negotiating' | 'won' | 'lost'
+  status: string
   referredBy?: string
   originalMessage?: string
   description?: string
@@ -173,6 +174,7 @@ export async function deleteClient(id: string): Promise<{ success: boolean }> {
 // DEALS
 // ============================================
 
+// PHASE 2 (A3): status is now string - validated against settings.dealStatuses at API layer
 export interface Deal {
   _id: string
   _createdAt?: string
@@ -180,7 +182,7 @@ export interface Deal {
   client: { _id: string; fullName: string; email?: string; phone?: string }
   dealType?: string
   value?: number
-  status: 'planning' | 'permitting' | 'in_progress' | 'inspection' | 'completed' | 'warranty' | 'paused' | 'cancelled'
+  status: string
   projectAddress?: string
   permitNumber?: string
   estimatedDuration?: string

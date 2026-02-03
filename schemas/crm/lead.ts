@@ -48,49 +48,21 @@ export default {
       validation: (Rule: any) => Rule.required(),
       initialValue: 'manual',
     },
+    // PHASE 2 (A3): source options now config-driven via CRM Settings
     {
       name: 'source',
       title: 'Source',
       type: 'string',
       group: 'details',
-      description: 'How they found the business (for manual leads)',
-      options: {
-        list: [
-          { title: 'Phone Call', value: 'phone_call' },
-          { title: 'Referral', value: 'referral' },
-          { title: 'Walk-in', value: 'walk_in' },
-          { title: 'Yard Sign', value: 'yard_sign' },
-          { title: 'Home Show / Expo', value: 'home_show' },
-          { title: 'Returning Client', value: 'returning_client' },
-          { title: 'Nextdoor', value: 'nextdoor' },
-          { title: 'Social Media', value: 'social_media' },
-          { title: 'Other', value: 'other' },
-        ],
-      },
+      description: 'How they found the business (for manual leads). Options managed in CRM Settings.',
     },
+    // PHASE 2 (A3): serviceType options now config-driven via CRM Settings
     {
       name: 'serviceType',
       title: 'Service Type',
       type: 'string',
       group: 'details',
-      description: 'Type of project they are interested in',
-      options: {
-        list: [
-          { title: 'Kitchen Remodel', value: 'kitchen_remodel' },
-          { title: 'Bathroom Remodel', value: 'bathroom_remodel' },
-          { title: 'Home Addition', value: 'home_addition' },
-          { title: 'Deck / Patio', value: 'deck_patio' },
-          { title: 'Full Renovation', value: 'full_renovation' },
-          { title: 'ADU / Guest House', value: 'adu_guest_house' },
-          { title: 'Roofing', value: 'roofing' },
-          { title: 'Flooring', value: 'flooring' },
-          { title: 'Exterior / Siding', value: 'exterior_siding' },
-          { title: 'Garage', value: 'garage' },
-          { title: 'Basement Finish', value: 'basement_finish' },
-          { title: 'Commercial', value: 'commercial' },
-          { title: 'Other', value: 'other' },
-        ],
-      },
+      description: 'Type of project they are interested in. Options managed in CRM Settings.',
     },
     {
       name: 'estimatedValue',
@@ -114,22 +86,13 @@ export default {
       },
       initialValue: 'medium',
     },
+    // PHASE 2 (A3): status options now config-driven via CRM Settings (pipelineStages)
     {
       name: 'status',
       title: 'Status',
       type: 'string',
       group: 'details',
-      options: {
-        list: [
-          { title: 'New Lead', value: 'new' },
-          { title: 'Contacted', value: 'contacted' },
-          { title: 'Site Visit', value: 'site_visit' },
-          { title: 'Quote Sent', value: 'quoted' },
-          { title: 'Negotiating', value: 'negotiating' },
-          { title: 'Won', value: 'won' },
-          { title: 'Lost', value: 'lost' },
-        ],
-      },
+      description: 'Pipeline stage. Options managed in CRM Settings.',
       initialValue: 'new',
       validation: (Rule: any) => Rule.required(),
     },

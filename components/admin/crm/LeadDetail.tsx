@@ -19,7 +19,7 @@ import SlidePanel from './SlidePanel'
 import StatusBadge from './StatusBadge'
 import SourceTag from './SourceTag'
 import ActivityTimeline from './ActivityTimeline'
-import { Lead, updateLead, deleteLead, convertLeadToClient } from '@/lib/crm-api'
+import { Lead, updateLead, deleteLead, convertLeadToClient, fetchCrmSettings, CrmSettings, PipelineStage } from '@/lib/crm-api'
 
 interface LeadDetailProps {
   lead: Lead | null
@@ -29,14 +29,45 @@ interface LeadDetailProps {
   onConvert?: (lead: Lead) => void
 }
 
-const STATUS_OPTIONS = [
-  { value: 'new', label: 'New Lead' },
-  { value: 'contacted', label: 'Contacted' },
-  { value: 'site_visit', label: 'Site Visit' },
-  { value: 'quoted', label: 'Quote Sent' },
-  { value: 'negotiating', label: 'Negotiating' },
-  { value: 'won', label: 'Won' },
-  { value: 'lost', label: 'Lost' },
+// PHASE 2 (A3): Fallback status options if settings not loaded
+const DEFAULT_STATUS_OPTIONS: PipelineStage[] = [
+  { key: 'new', label: 'New Lead', color: '#fe5557' },
+  { key: 'contacted', label: 'Contacted', color: '#8b5cf6' },
+  { key: 'site_visit', label: 'Site Visit', color: '#6366f1' },
+  { key: 'quoted', label: 'Quote Sent', color: '#f59e0b' },
+  { key: 'negotiating', label: 'Negotiating', color: '#f97316' },
+  { key: 'won', label: 'Won', color: '#10b981' },
+  { key: 'lost', label: 'Lost', color: '#6b7280' },
+]
+
+// PHASE 2 (A3): Fallback source options if settings not loaded
+const DEFAULT_SOURCE_OPTIONS = [
+  'Phone Call',
+  'Referral',
+  'Walk-in',
+  'Yard Sign',
+  'Home Show / Expo',
+  'Returning Client',
+  'Nextdoor',
+  'Social Media',
+  'Other',
+]
+
+// PHASE 2 (A3): Fallback service type options if settings not loaded
+const DEFAULT_SERVICE_OPTIONS = [
+  'Kitchen Remodel',
+  'Bathroom Remodel',
+  'Home Addition',
+  'Deck / Patio',
+  'Full Renovation',
+  'ADU / Guest House',
+  'Roofing',
+  'Flooring',
+  'Exterior / Siding',
+  'Garage',
+  'Basement Finish',
+  'Commercial',
+  'Other',
 ]
 
 const PRIORITY_OPTIONS = [
@@ -58,6 +89,62 @@ export default function LeadDetail({
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // PHASE 2 (A3): Fetch CRM settings for status dropdown
+  const [settings, setSettings] = useState<CrmSettings | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCrmSettings()
+        .then(setSettings)
+        .catch(() => setSettings(null))
+    }
+  }, [isOpen])
+
+  // Derive status options from settings with fallback
+  const pipelineStages = settings?.pipelineStages?.length
+    ? settings.pipelineStages
+    : DEFAULT_STATUS_OPTIONS
+
+  // PHASE 2 (A3): INV-017 - Include current lead status in options even if not in settings (legacy support)
+  const statusOptions = (() => {
+    const currentStatus = lead?.status
+    const stageKeys = pipelineStages.map(s => s.key)
+    // If lead has a status not in current settings, show it as an option (graceful degradation)
+    if (currentStatus && !stageKeys.includes(currentStatus)) {
+      return [
+        ...pipelineStages,
+        { key: currentStatus, label: `${currentStatus} (legacy)`, color: '#9ca3af' }
+      ]
+    }
+    return pipelineStages
+  })()
+
+  // PHASE 2 (A3): Derive source options from settings with fallback + legacy support
+  const sourceOptionsBase = settings?.leadSources?.length
+    ? settings.leadSources
+    : DEFAULT_SOURCE_OPTIONS
+
+  const sourceOptions = (() => {
+    const currentSource = lead?.source
+    if (currentSource && !sourceOptionsBase.includes(currentSource)) {
+      return [...sourceOptionsBase, `${currentSource} (legacy)`]
+    }
+    return sourceOptionsBase
+  })()
+
+  // PHASE 2 (A3): Derive service type options from settings with fallback + legacy support
+  const serviceOptionsBase = settings?.serviceTypes?.length
+    ? settings.serviceTypes
+    : DEFAULT_SERVICE_OPTIONS
+
+  const serviceOptions = (() => {
+    const currentServiceType = lead?.serviceType
+    if (currentServiceType && !serviceOptionsBase.includes(currentServiceType)) {
+      return [...serviceOptionsBase, `${currentServiceType} (legacy)`]
+    }
+    return serviceOptionsBase
+  })()
 
   useEffect(() => {
     if (lead) {
@@ -219,11 +306,11 @@ export default function LeadDetail({
           </label>
           <select
             value={formData.status || 'new'}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as Lead['status'] })}
+            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#fe5557] focus:border-transparent"
           >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
+            {statusOptions.map((opt) => (
+              <option key={opt.key} value={opt.key}>
                 {opt.label}
               </option>
             ))}
@@ -301,15 +388,45 @@ export default function LeadDetail({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
+              <label className="block text-xs text-gray-500 mb-1">Source</label>
+              <select
+                value={formData.source || ''}
+                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#fe5557] focus:border-transparent"
+              >
+                <option value="">Select source...</option>
+                {sourceOptions.map((opt) => {
+                  const isLegacy = opt.endsWith(' (legacy)')
+                  const value = isLegacy ? opt.replace(' (legacy)', '') : opt
+                  return (
+                    <option key={opt} value={value}>
+                      {opt}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+            <div>
               <label className="block text-xs text-gray-500 mb-1">Service Type</label>
-              <input
-                type="text"
+              <select
                 value={formData.serviceType || ''}
                 onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#fe5557] focus:border-transparent"
-                placeholder="e.g., Kitchen Remodel"
-              />
+              >
+                <option value="">Select type...</option>
+                {serviceOptions.map((opt) => {
+                  const isLegacy = opt.endsWith(' (legacy)')
+                  const value = isLegacy ? opt.replace(' (legacy)', '') : opt
+                  return (
+                    <option key={opt} value={value}>
+                      {opt}
+                    </option>
+                  )
+                })}
+              </select>
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs text-gray-500 mb-1">Estimated Value</label>
               <div className="relative">
@@ -323,16 +440,16 @@ export default function LeadDetail({
                 />
               </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Referred By</label>
-            <input
-              type="text"
-              value={formData.referredBy || ''}
-              onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#fe5557] focus:border-transparent"
-              placeholder="Name of referrer"
-            />
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Referred By</label>
+              <input
+                type="text"
+                value={formData.referredBy || ''}
+                onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#fe5557] focus:border-transparent"
+                placeholder="Name of referrer"
+              />
+            </div>
           </div>
         </div>
       </div>

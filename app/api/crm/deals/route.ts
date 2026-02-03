@@ -7,6 +7,43 @@ import { z } from 'zod'
 
 type DealInput = z.output<typeof DealInputSchema>
 
+// PHASE 2 (A3): Fetch CRM settings for config-driven validation
+const CRM_SETTINGS_ID = 'crmSettings'
+
+interface DealStatusStage {
+  key: string
+  label: string
+  color: string
+}
+
+interface CrmSettingsData {
+  dealStatuses?: DealStatusStage[]
+}
+
+// Default deal statuses (fallback if settings not configured)
+const DEFAULT_DEAL_STATUSES: DealStatusStage[] = [
+  { key: 'planning', label: 'Planning', color: '#f59e0b' },
+  { key: 'permitting', label: 'Permitting', color: '#6366f1' },
+  { key: 'in_progress', label: 'In Progress', color: '#10b981' },
+  { key: 'inspection', label: 'Final Inspection', color: '#14b8a6' },
+  { key: 'completed', label: 'Completed', color: '#059669' },
+  { key: 'warranty', label: 'Warranty Period', color: '#6b7280' },
+  { key: 'paused', label: 'Paused', color: '#ef4444' },
+  { key: 'cancelled', label: 'Cancelled', color: '#374151' },
+]
+
+// Active statuses for pipeline value calculation
+const ACTIVE_STATUS_KEYS = ['planning', 'permitting', 'in_progress', 'inspection']
+
+async function getCrmSettings(client: ReturnType<typeof getSanityClient>): Promise<CrmSettingsData> {
+  const settings = await client.fetch(`
+    *[_type == "crmSettings" && _id == $id][0] {
+      dealStatuses
+    }
+  `, { id: CRM_SETTINGS_ID })
+  return settings || {}
+}
+
 function buildDealFields(d: DealInput) {
   return {
     title: d.title,
@@ -72,22 +109,21 @@ export async function GET(request: NextRequest) {
       count(*[_type == "deal" ${filters}])
     `)
 
+    // PHASE 2 (A3): Dynamic statusCounts from settings.dealStatuses
+    const settings = await getCrmSettings(client)
+    const statuses = settings.dealStatuses?.length ? settings.dealStatuses : DEFAULT_DEAL_STATUSES
+
+    // Build dynamic GROQ query for status counts
+    const statusCountsQuery = statuses.map(s => `"${s.key}": count(*[_type == "deal" && status == "${s.key}"])`).join(',\n      ')
     const statusCounts = await client.fetch(`{
-      "planning": count(*[_type == "deal" && status == "planning"]),
-      "permitting": count(*[_type == "deal" && status == "permitting"]),
-      "in_progress": count(*[_type == "deal" && status == "in_progress"]),
-      "inspection": count(*[_type == "deal" && status == "inspection"]),
-      "completed": count(*[_type == "deal" && status == "completed"]),
-      "warranty": count(*[_type == "deal" && status == "warranty"]),
-      "paused": count(*[_type == "deal" && status == "paused"]),
-      "cancelled": count(*[_type == "deal" && status == "cancelled"]),
+      ${statusCountsQuery},
       "total": count(*[_type == "deal"])
     }`)
 
-    // Calculate total pipeline value
+    // Calculate total pipeline value (using known active statuses)
     const pipelineValue = await client.fetch(`
-      math::sum(*[_type == "deal" && status in ["planning", "permitting", "in_progress", "inspection"]].value)
-    `)
+      math::sum(*[_type == "deal" && status in $activeStatuses].value)
+    `, { activeStatuses: ACTIVE_STATUS_KEYS })
 
     return NextResponse.json({
       deals: data || [],
@@ -117,7 +153,21 @@ export async function POST(request: NextRequest) {
     }
 
     const d = v.data
+    const readClient = getSanityClient()
     const client = getSanityWriteClient()
+
+    // PHASE 2 (A3): Validate status against settings.dealStatuses (fail-closed)
+    const settings = await getCrmSettings(readClient)
+    const statuses = settings.dealStatuses?.length ? settings.dealStatuses : DEFAULT_DEAL_STATUSES
+    const validStatusKeys = statuses.map(s => s.key)
+
+    if (d.status && !validStatusKeys.includes(d.status)) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        details: [`status: Invalid status "${d.status}". Valid values: ${validStatusKeys.join(', ')}`]
+      }, { status: 400 })
+    }
+
     const now = new Date().toISOString()
 
     const fields = buildDealFields(d)
@@ -167,6 +217,18 @@ export async function PUT(request: NextRequest) {
 
     const sanityClient = getSanityClient()
     const writeClient = getSanityWriteClient()
+
+    // PHASE 2 (A3): Validate status against settings.dealStatuses (fail-closed)
+    const settings = await getCrmSettings(sanityClient)
+    const statuses = settings.dealStatuses?.length ? settings.dealStatuses : DEFAULT_DEAL_STATUSES
+    const validStatusKeys = statuses.map(s => s.key)
+
+    if (d.status && !validStatusKeys.includes(d.status)) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        details: [`status: Invalid status "${d.status}". Valid values: ${validStatusKeys.join(', ')}`]
+      }, { status: 400 })
+    }
 
     // Get current deal to check for status change
     const currentDeal = await sanityClient.fetch(

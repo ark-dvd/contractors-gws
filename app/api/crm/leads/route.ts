@@ -7,6 +7,73 @@ import { z } from 'zod'
 
 type LeadInput = z.output<typeof LeadInputSchema>
 
+// PHASE 2 (A3): Fetch CRM settings for config-driven validation
+const CRM_SETTINGS_ID = 'crmSettings'
+
+interface PipelineStage {
+  key: string
+  label: string
+  color: string
+}
+
+interface CrmSettingsData {
+  pipelineStages?: PipelineStage[]
+  leadSources?: string[]
+  serviceTypes?: string[]
+}
+
+// Default pipeline stages (fallback if settings not configured)
+const DEFAULT_PIPELINE_STAGES: PipelineStage[] = [
+  { key: 'new', label: 'New Lead', color: '#fe5557' },
+  { key: 'contacted', label: 'Contacted', color: '#8b5cf6' },
+  { key: 'site_visit', label: 'Site Visit', color: '#6366f1' },
+  { key: 'quoted', label: 'Quote Sent', color: '#f59e0b' },
+  { key: 'negotiating', label: 'Negotiating', color: '#f97316' },
+  { key: 'won', label: 'Won', color: '#10b981' },
+  { key: 'lost', label: 'Lost', color: '#6b7280' },
+]
+
+// Default lead sources (fallback if settings not configured)
+const DEFAULT_LEAD_SOURCES: string[] = [
+  'Phone Call',
+  'Referral',
+  'Walk-in',
+  'Yard Sign',
+  'Home Show / Expo',
+  'Returning Client',
+  'Nextdoor',
+  'Social Media',
+  'Other',
+]
+
+// Default service types (fallback if settings not configured)
+const DEFAULT_SERVICE_TYPES: string[] = [
+  'Kitchen Remodel',
+  'Bathroom Remodel',
+  'Home Addition',
+  'Deck / Patio',
+  'Full Renovation',
+  'ADU / Guest House',
+  'Roofing',
+  'Flooring',
+  'Exterior / Siding',
+  'Garage',
+  'Basement Finish',
+  'Commercial',
+  'Other',
+]
+
+async function getCrmSettings(client: ReturnType<typeof getSanityClient>): Promise<CrmSettingsData> {
+  const settings = await client.fetch(`
+    *[_type == "crmSettings" && _id == $id][0] {
+      pipelineStages,
+      leadSources,
+      serviceTypes
+    }
+  `, { id: CRM_SETTINGS_ID })
+  return settings || {}
+}
+
 function buildLeadFields(d: LeadInput) {
   return {
     fullName: d.fullName,
@@ -68,15 +135,14 @@ export async function GET(request: NextRequest) {
       count(*[_type == "lead" ${statusFilter}])
     `)
 
-    // Get counts by status for filter badges
+    // PHASE 2 (A3): Dynamic statusCounts from settings.pipelineStages
+    const settings = await getCrmSettings(client)
+    const stages = settings.pipelineStages?.length ? settings.pipelineStages : DEFAULT_PIPELINE_STAGES
+
+    // Build dynamic GROQ query for status counts
+    const statusCountsQuery = stages.map(s => `"${s.key}": count(*[_type == "lead" && status == "${s.key}"])`).join(',\n      ')
     const statusCounts = await client.fetch(`{
-      "new": count(*[_type == "lead" && status == "new"]),
-      "contacted": count(*[_type == "lead" && status == "contacted"]),
-      "site_visit": count(*[_type == "lead" && status == "site_visit"]),
-      "quoted": count(*[_type == "lead" && status == "quoted"]),
-      "negotiating": count(*[_type == "lead" && status == "negotiating"]),
-      "won": count(*[_type == "lead" && status == "won"]),
-      "lost": count(*[_type == "lead" && status == "lost"]),
+      ${statusCountsQuery},
       "total": count(*[_type == "lead"])
     }`)
 
@@ -107,7 +173,37 @@ export async function POST(request: NextRequest) {
     }
 
     const d = v.data
+    const readClient = getSanityClient()
     const client = getSanityWriteClient()
+
+    // PHASE 2 (A3): Validate status, source, serviceType against settings (fail-closed)
+    const settings = await getCrmSettings(readClient)
+    const stages = settings.pipelineStages?.length ? settings.pipelineStages : DEFAULT_PIPELINE_STAGES
+    const validStatusKeys = stages.map(s => s.key)
+    const validSources = settings.leadSources?.length ? settings.leadSources : DEFAULT_LEAD_SOURCES
+    const validServiceTypes = settings.serviceTypes?.length ? settings.serviceTypes : DEFAULT_SERVICE_TYPES
+
+    const validationErrors: string[] = []
+
+    if (d.status && !validStatusKeys.includes(d.status)) {
+      validationErrors.push(`status: Invalid status "${d.status}". Valid values: ${validStatusKeys.join(', ')}`)
+    }
+
+    if (d.source && !validSources.includes(d.source)) {
+      validationErrors.push(`source: Invalid source "${d.source}". Valid values: ${validSources.join(', ')}`)
+    }
+
+    if (d.serviceType && !validServiceTypes.includes(d.serviceType)) {
+      validationErrors.push(`serviceType: Invalid serviceType "${d.serviceType}". Valid values: ${validServiceTypes.join(', ')}`)
+    }
+
+    if (validationErrors.length > 0) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        details: validationErrors
+      }, { status: 400 })
+    }
+
     const now = new Date().toISOString()
 
     const fields = buildLeadFields(d)
@@ -155,10 +251,39 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing _id for update' }, { status: 400 })
     }
 
+    const readClient = getSanityClient()
     const client = getSanityWriteClient()
 
+    // PHASE 2 (A3): Validate status, source, serviceType against settings (fail-closed)
+    const settings = await getCrmSettings(readClient)
+    const stages = settings.pipelineStages?.length ? settings.pipelineStages : DEFAULT_PIPELINE_STAGES
+    const validStatusKeys = stages.map(s => s.key)
+    const validSources = settings.leadSources?.length ? settings.leadSources : DEFAULT_LEAD_SOURCES
+    const validServiceTypes = settings.serviceTypes?.length ? settings.serviceTypes : DEFAULT_SERVICE_TYPES
+
+    const validationErrors: string[] = []
+
+    if (d.status && !validStatusKeys.includes(d.status)) {
+      validationErrors.push(`status: Invalid status "${d.status}". Valid values: ${validStatusKeys.join(', ')}`)
+    }
+
+    if (d.source && !validSources.includes(d.source)) {
+      validationErrors.push(`source: Invalid source "${d.source}". Valid values: ${validSources.join(', ')}`)
+    }
+
+    if (d.serviceType && !validServiceTypes.includes(d.serviceType)) {
+      validationErrors.push(`serviceType: Invalid serviceType "${d.serviceType}". Valid values: ${validServiceTypes.join(', ')}`)
+    }
+
+    if (validationErrors.length > 0) {
+      return NextResponse.json({
+        error: 'Validation failed',
+        details: validationErrors
+      }, { status: 400 })
+    }
+
     // Get current lead to check for status change
-    const currentLead = await getSanityClient().fetch(
+    const currentLead = await readClient.fetch(
       `*[_type == "lead" && _id == $id][0]{status}`,
       { id: d._id }
     )

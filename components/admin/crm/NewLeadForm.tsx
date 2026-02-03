@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Phone,
   Mail,
@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react'
 import SlidePanel from './SlidePanel'
-import { createLead, Lead } from '@/lib/crm-api'
+import { createLead, Lead, fetchCrmSettings, CrmSettings } from '@/lib/crm-api'
 
 interface NewLeadFormProps {
   isOpen: boolean
@@ -18,32 +18,33 @@ interface NewLeadFormProps {
   onCreated: () => void
 }
 
-const SOURCE_OPTIONS = [
-  { value: 'phone_call', label: 'Phone Call' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'walk_in', label: 'Walk-in' },
-  { value: 'yard_sign', label: 'Yard Sign' },
-  { value: 'home_show', label: 'Home Show / Expo' },
-  { value: 'returning_client', label: 'Returning Client' },
-  { value: 'nextdoor', label: 'Nextdoor' },
-  { value: 'social_media', label: 'Social Media' },
-  { value: 'other', label: 'Other' },
+// PHASE 2 (A3): Fallback options if settings not loaded
+const DEFAULT_SOURCE_OPTIONS = [
+  'Phone Call',
+  'Referral',
+  'Walk-in',
+  'Yard Sign',
+  'Home Show / Expo',
+  'Returning Client',
+  'Nextdoor',
+  'Social Media',
+  'Other',
 ]
 
-const SERVICE_OPTIONS = [
-  { value: 'kitchen_remodel', label: 'Kitchen Remodel' },
-  { value: 'bathroom_remodel', label: 'Bathroom Remodel' },
-  { value: 'home_addition', label: 'Home Addition' },
-  { value: 'deck_patio', label: 'Deck / Patio' },
-  { value: 'full_renovation', label: 'Full Renovation' },
-  { value: 'adu_guest_house', label: 'ADU / Guest House' },
-  { value: 'roofing', label: 'Roofing' },
-  { value: 'flooring', label: 'Flooring' },
-  { value: 'exterior_siding', label: 'Exterior / Siding' },
-  { value: 'garage', label: 'Garage' },
-  { value: 'basement_finish', label: 'Basement Finish' },
-  { value: 'commercial', label: 'Commercial' },
-  { value: 'other', label: 'Other' },
+const DEFAULT_SERVICE_OPTIONS = [
+  'Kitchen Remodel',
+  'Bathroom Remodel',
+  'Home Addition',
+  'Deck / Patio',
+  'Full Renovation',
+  'ADU / Guest House',
+  'Roofing',
+  'Flooring',
+  'Exterior / Siding',
+  'Garage',
+  'Basement Finish',
+  'Commercial',
+  'Other',
 ]
 
 const PRIORITY_OPTIONS = [
@@ -74,6 +75,26 @@ export default function NewLeadForm({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
+
+  // PHASE 2 (A3): Fetch CRM settings for dropdown options
+  const [settings, setSettings] = useState<CrmSettings | null>(null)
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCrmSettings()
+        .then(setSettings)
+        .catch(() => setSettings(null))
+    }
+  }, [isOpen])
+
+  // Derive options from settings with fallback
+  const sourceOptions = settings?.leadSources?.length
+    ? settings.leadSources
+    : DEFAULT_SOURCE_OPTIONS
+
+  const serviceOptions = settings?.serviceTypes?.length
+    ? settings.serviceTypes
+    : DEFAULT_SERVICE_OPTIONS
 
   const resetForm = () => {
     setFormData(initialFormData)
@@ -258,9 +279,9 @@ export default function NewLeadForm({
                   }`}
                 >
                   <option value="">Select source...</option>
-                  {SOURCE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {sourceOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
                     </option>
                   ))}
                 </select>
@@ -292,9 +313,9 @@ export default function NewLeadForm({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#fe5557] focus:border-transparent"
                 >
                   <option value="">Select type...</option>
-                  {SERVICE_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                  {serviceOptions.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
                     </option>
                   ))}
                 </select>

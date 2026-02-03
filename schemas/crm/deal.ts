@@ -56,23 +56,13 @@ export default {
       group: 'basic',
       description: 'Total contract value in dollars',
     },
+    // PHASE 2 (A3): status options now config-driven via CRM Settings (dealStatuses)
     {
       name: 'status',
       title: 'Status',
       type: 'string',
       group: 'basic',
-      options: {
-        list: [
-          { title: 'Planning', value: 'planning' },
-          { title: 'Permitting', value: 'permitting' },
-          { title: 'In Progress', value: 'in_progress' },
-          { title: 'Final Inspection', value: 'inspection' },
-          { title: 'Completed', value: 'completed' },
-          { title: 'Warranty Period', value: 'warranty' },
-          { title: 'Paused', value: 'paused' },
-          { title: 'Cancelled', value: 'cancelled' },
-        ],
-      },
+      description: 'Project status. Options managed in CRM Settings.',
       initialValue: 'planning',
       validation: (Rule: any) => Rule.required(),
     },

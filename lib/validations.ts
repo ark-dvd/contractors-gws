@@ -157,6 +157,7 @@ export const LeadWebFormSchema = z.object({
 })
 
 // Lead Input Schema (for admin CRUD)
+// PHASE 2 (A3): status is now z.string() - validated against settings.pipelineStages at API layer
 export const LeadInputSchema = z.object({
   _id: z.string().optional(),
   fullName: z.string().min(1, 'Full name is required'),
@@ -167,7 +168,7 @@ export const LeadInputSchema = z.object({
   serviceType: z.string().optional().default(''),
   estimatedValue: z.number().optional(),
   priority: z.enum(['high', 'medium', 'low']).default('medium'),
-  status: z.enum(['new', 'contacted', 'site_visit', 'quoted', 'negotiating', 'won', 'lost']).default('new'),
+  status: z.string().default('new'),
   referredBy: z.string().optional().default(''),
   originalMessage: z.string().optional().default(''),
   description: z.string().optional().default(''),
@@ -189,13 +190,14 @@ export const ClientInputSchema = z.object({
 })
 
 // Deal Input Schema
+// PHASE 2 (A3): status is now z.string() - validated against settings.dealStatuses at API layer
 export const DealInputSchema = z.object({
   _id: z.string().optional(),
   title: z.string().min(1, 'Project title is required'),
   clientId: z.string().min(1, 'Client is required'), // Reference to client
   dealType: z.string().optional().default(''),
   value: z.number().optional(),
-  status: z.enum(['planning', 'permitting', 'in_progress', 'inspection', 'completed', 'warranty', 'paused', 'cancelled']).default('planning'),
+  status: z.string().default('planning'),
   projectAddress: z.string().optional().default(''),
   permitNumber: z.string().optional().default(''),
   estimatedDuration: z.string().optional().default(''),
