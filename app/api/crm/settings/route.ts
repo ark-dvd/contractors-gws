@@ -146,6 +146,15 @@ export async function PUT(request: NextRequest) {
     const d = v.data
     const client = getSanityWriteClient()
 
+    // PHASE 1 FIX: Ensure document exists before patching
+    // Sanity's patch() fails silently on non-existent documents.
+    // We must first guarantee the document exists, then patch it.
+    await client.createIfNotExists({
+      ...DEFAULT_CRM_SETTINGS,
+      _id: CRM_SETTINGS_ID,
+      _type: 'crmSettings',
+    })
+
     // Build fields to update (only include non-undefined values)
     const fields: Record<string, unknown> = {}
     if (d.pipelineStages !== undefined) fields.pipelineStages = d.pipelineStages
@@ -158,6 +167,7 @@ export async function PUT(request: NextRequest) {
     if (d.dealLabel !== undefined) fields.dealLabel = d.dealLabel
     if (d.leadsPageSize !== undefined) fields.leadsPageSize = d.leadsPageSize
 
+    // Now patch the existing document
     const result = await client.patch(CRM_SETTINGS_ID).set(fields).commit()
     return NextResponse.json(result)
   } catch (e) {
