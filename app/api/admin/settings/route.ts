@@ -9,15 +9,38 @@ type SiteSettingsInput = z.output<typeof SiteSettingsInputSchema>
 
 const SETTINGS_ID = 'siteSettings'
 
-function buildImageRef(value: unknown): { _type: 'image'; asset: { _type: 'reference'; _ref: string } } | undefined {
-  if (typeof value === 'string' && value.startsWith('image-')) {
-    return { _type: 'image', asset: { _type: 'reference', _ref: value } }
+// Build image reference object for Sanity
+function buildImageRef(assetId: string | undefined | null) {
+  if (!assetId || typeof assetId !== 'string') return undefined
+  
+  // Handle both formats: "image-xxx-yyy-zzz" and raw ID
+  const ref = assetId.startsWith('image-') ? assetId : `image-${assetId}`
+  return {
+    _type: 'image',
+    asset: {
+      _type: 'reference',
+      _ref: ref
+    }
   }
-  return undefined
 }
 
-function buildFields(d: SiteSettingsInput) {
+// Build file reference object for Sanity (for videos)
+function buildFileRef(assetId: string | undefined | null) {
+  if (!assetId || typeof assetId !== 'string') return undefined
+  
+  // Handle both formats: "file-xxx-yyy-zzz" and raw ID
+  const ref = assetId.startsWith('file-') ? assetId : `file-${assetId}`
   return {
+    _type: 'file',
+    asset: {
+      _type: 'reference',
+      _ref: ref
+    }
+  }
+}
+
+function buildFields(d: SiteSettingsInput, includeMedia: boolean = false) {
+  const fields: Record<string, unknown> = {
     siteTitle: d.siteTitle || '',
     heroHeadline: d.heroHeadline || '',
     heroSubheadline: d.heroSubheadline || '',
@@ -28,6 +51,7 @@ function buildFields(d: SiteSettingsInput) {
     aboutText: d.aboutText || '',
     aboutStats: d.aboutStats?.map(s => ({
       _type: 'object' as const,
+      _key: Math.random().toString(36).substring(7),
       value: s.value,
       label: s.label,
     })) || [],
@@ -49,6 +73,49 @@ function buildFields(d: SiteSettingsInput) {
     insuranceInfo: d.insuranceInfo || '',
     bondInfo: d.bondInfo || '',
   }
+
+  // CRITICAL: Only include media fields if they were explicitly provided
+  // This prevents overwriting existing media with empty values
+  if (includeMedia) {
+    // Logo
+    if (d.logo) {
+      fields.logo = buildImageRef(d.logo)
+    }
+    
+    // Favicon
+    if (d.favicon) {
+      fields.favicon = buildImageRef(d.favicon)
+    }
+    
+    // Contractor Photo
+    if (d.contractorPhoto) {
+      fields.contractorPhoto = buildImageRef(d.contractorPhoto)
+    }
+    
+    // Hero Video
+    if (d.heroVideo) {
+      fields.heroVideo = buildFileRef(d.heroVideo)
+    }
+    
+    // Hero Images array
+    if (d.heroImages && Array.isArray(d.heroImages) && d.heroImages.length > 0) {
+      fields.heroImages = d.heroImages.map((img: string | { assetId?: string; alt?: string }, index: number) => {
+        const assetId = typeof img === 'string' ? img : img.assetId
+        const alt = typeof img === 'string' ? '' : (img.alt || '')
+        return {
+          _type: 'image',
+          _key: `hero-image-${index}-${Math.random().toString(36).substring(7)}`,
+          alt: alt,
+          asset: {
+            _type: 'reference',
+            _ref: assetId?.startsWith('image-') ? assetId : `image-${assetId}`
+          }
+        }
+      })
+    }
+  }
+
+  return fields
 }
 
 export async function GET(request: NextRequest) {
@@ -92,10 +159,14 @@ export async function GET(request: NextRequest) {
         insuranceInfo,
         bondInfo,
         "logoUrl": logo.asset->url,
+        "logoAssetId": logo.asset._ref,
         "faviconUrl": favicon.asset->url,
+        "faviconAssetId": favicon.asset._ref,
         "contractorPhotoUrl": contractorPhoto.asset->url,
-        "heroImageUrls": heroImages[] { "url": asset->url, alt },
-        "heroVideoUrl": heroVideo.asset->url
+        "contractorPhotoAssetId": contractorPhoto.asset._ref,
+        "heroImageUrls": heroImages[] { "url": asset->url, "assetId": asset._ref, alt },
+        "heroVideoUrl": heroVideo.asset->url,
+        "heroVideoAssetId": heroVideo.asset._ref
       }
     `)
     return NextResponse.json(data || {})
@@ -114,15 +185,26 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
+    console.log('[Settings POST] Received payload:', JSON.stringify(body, null, 2))
+    
     const v = validate(SiteSettingsInputSchema, body)
     if (!v.success) {
       return NextResponse.json({ error: 'Validation failed', details: v.errors }, { status: 400 })
     }
 
     const d = v.data
-    const fields = buildFields(d)
+    
+    // Check if any media fields were provided
+    const hasMedia = !!(d.logo || d.favicon || d.contractorPhoto || d.heroVideo || 
+                       (d.heroImages && d.heroImages.length > 0))
+    
+    const fields = buildFields(d, hasMedia)
+    console.log('[Settings POST] Built fields:', JSON.stringify(fields, null, 2))
+    
     const doc = { _id: SETTINGS_ID, _type: 'siteSettings' as const, ...fields }
     const result = await getSanityWriteClient().createIfNotExists(doc)
+    
+    console.log('[Settings POST] Sanity result:', result._id)
     return NextResponse.json(result)
   } catch (e) {
     console.error('Create settings error:', e)
@@ -139,14 +221,25 @@ export async function PUT(request: NextRequest) {
 
   try {
     const body = await request.json()
+    console.log('[Settings PUT] Received payload:', JSON.stringify(body, null, 2))
+    
     const v = validate(SiteSettingsInputSchema, body)
     if (!v.success) {
       return NextResponse.json({ error: 'Validation failed', details: v.errors }, { status: 400 })
     }
 
     const d = v.data
-    const fields = buildFields(d)
+    
+    // Check if any media fields were provided
+    const hasMedia = !!(d.logo || d.favicon || d.contractorPhoto || d.heroVideo || 
+                       (d.heroImages && d.heroImages.length > 0))
+    
+    const fields = buildFields(d, hasMedia)
+    console.log('[Settings PUT] Built fields with media:', hasMedia, JSON.stringify(fields, null, 2))
+    
     const result = await getSanityWriteClient().patch(SETTINGS_ID).set(fields).commit()
+    
+    console.log('[Settings PUT] Sanity result:', result._id)
     return NextResponse.json(result)
   } catch (e) {
     console.error('Update settings error:', e)

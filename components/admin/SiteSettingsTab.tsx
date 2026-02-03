@@ -509,6 +509,8 @@ export default function SiteSettingsTab() {
 
   // Build payload that only includes media fields when new uploads occurred
   const buildPayload = () => {
+    console.log('[buildPayload] newMediaUploads at buildPayload time:', JSON.stringify(newMediaUploads))
+    console.log('[buildPayload] newMediaUploads.heroVideo specifically:', newMediaUploads.heroVideo)
     // Start with non-media fields
     const payload: Record<string, unknown> = {
       _id: settings._id,
@@ -569,7 +571,10 @@ export default function SiteSettingsTab() {
   const handleSaveAll = async () => {
     setIsSaving(true)
     try {
+      console.log('[SiteSettings] newMediaUploads before buildPayload:', JSON.stringify(newMediaUploads))
       const payload = buildPayload()
+      console.log('[SiteSettings] payload after buildPayload:', JSON.stringify(payload))
+      console.log('[SiteSettings] payload.heroVideo:', payload.heroVideo)
       // Use POST for first-time creation, PUT for updates
       if (settingsExist) {
         await adminPut('settings', payload)
@@ -894,9 +899,14 @@ export default function SiteSettingsTab() {
               <ImageUpload
                 value={null}
                 onUpload={(assetId, url) => {
+                  console.log('[SiteSettings] heroVideo onUpload called with assetId:', assetId, 'url:', url)
                   setSettings((prev) => ({ ...prev, heroVideoUrl: url }))
                   // Track new upload asset ID
-                  setNewMediaUploads((prev) => ({ ...prev, heroVideo: assetId }))
+                  setNewMediaUploads((prev) => {
+                    const next = { ...prev, heroVideo: assetId }
+                    console.log('[SiteSettings] newMediaUploads after setNewMediaUploads:', JSON.stringify(next))
+                    return next
+                  })
                 }}
                 onRemove={() => {}}
                 label="Upload Hero Video"

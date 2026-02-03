@@ -95,11 +95,26 @@ export const ActiveJobInputSchema = z.object({
 })
 
 // Site Settings Input Schema
+// FIXED: Added all media fields (logo, favicon, contractorPhoto, heroVideo, heroImages)
 export const SiteSettingsInputSchema = z.object({
   siteTitle: z.string().optional().default(''),
   heroHeadline: z.string().optional().default(''),
   heroSubheadline: z.string().optional().default(''),
   heroMediaType: z.enum(['images', 'video']).optional().default('images'),
+  
+  // MEDIA FIELDS - these are asset IDs from Sanity uploads
+  logo: z.string().optional(),
+  favicon: z.string().optional(),
+  contractorPhoto: z.string().optional(),
+  heroVideo: z.string().optional(),
+  heroImages: z.array(z.union([
+    z.string(), // Just asset ID
+    z.object({  // Or object with asset ID and alt text
+      assetId: z.string().optional(),
+      alt: z.string().optional(),
+    })
+  ])).optional(),
+  
   contractorName: z.string().optional().default(''),
   contractorTitle: z.string().optional().default(''),
   aboutHeadline: z.string().optional().default(''),
