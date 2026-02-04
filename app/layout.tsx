@@ -4,6 +4,11 @@ import { isSanityConfigured } from '@/lib/sanity'
 import PublicLayout from '@/components/PublicLayout'
 import './globals.css'
 
+// Force dynamic rendering for all pages to ensure CSP nonces match
+// Per DOC-040: strict-dynamic CSP requires nonces to match at request time
+// Trade-off: No ISR caching, but guaranteed CSP compliance
+export const dynamic = 'force-dynamic'
+
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings()
   const contractorName = settings.contractorName || 'Professional Contractor'

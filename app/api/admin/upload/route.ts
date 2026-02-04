@@ -34,19 +34,9 @@ function createWriteClient() {
   })
 }
 
-// GET endpoint for testing route accessibility
-export async function GET() {
-  console.log('[Upload] GET request - testing route accessibility')
-  return NextResponse.json({
-    status: 'ok',
-    route: '/api/admin/upload',
-    env: {
-      hasProjectId: !!process.env.NEXT_PUBLIC_SANITY_PROJECT_ID,
-      hasApiToken: !!process.env.SANITY_API_TOKEN,
-      hasNextAuthSecret: !!process.env.NEXTAUTH_SECRET,
-    },
-  })
-}
+// GET endpoint removed - was exposing internal configuration without authentication
+// Per DOC-040 § 2.4: "Any endpoint that reads, writes, or modifies protected data" requires auth
+// Per DOC-040 § 8.1: Public endpoints must not reveal "Configuration values" or "System architecture details"
 
 // Simple in-memory rate limiting
 const uploadCounts = new Map<string, { count: number; resetAt: number }>()
