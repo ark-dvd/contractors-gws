@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState, FormEvent, useRef, useEffect } from 'react'
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 
 interface Service {
@@ -25,7 +25,11 @@ interface FormErrors {
   name?: string
   email?: string
   message?: string
+  turnstile?: string
 }
+
+// Turnstile site key from environment
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function ContactForm({ services }: ContactFormProps) {
   const [formData, setFormData] = useState<FormData>({
@@ -39,6 +43,86 @@ export default function ContactForm({ services }: ContactFormProps) {
   const [errors, setErrors] = useState<FormErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [errorMessage, setErrorMessage] = useState<string>('')
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+  const turnstileRef = useRef<HTMLDivElement>(null)
+  const turnstileWidgetId = useRef<string | null>(null)
+
+  // Load and render Turnstile widget
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY || !turnstileRef.current) return
+
+    // Check if Turnstile script is already loaded
+    if (typeof window !== 'undefined' && (window as unknown as { turnstile?: TurnstileAPI }).turnstile) {
+      renderWidget()
+      return
+    }
+
+    // Load Turnstile script
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+    script.async = true
+    script.onload = () => renderWidget()
+    document.head.appendChild(script)
+
+    return () => {
+      // Cleanup widget on unmount
+      if (turnstileWidgetId.current && (window as unknown as { turnstile?: TurnstileAPI }).turnstile) {
+        try {
+          (window as unknown as { turnstile: TurnstileAPI }).turnstile.remove(turnstileWidgetId.current)
+        } catch {
+          // Widget may already be removed
+        }
+      }
+    }
+  }, [])
+
+  interface TurnstileAPI {
+    render: (container: HTMLElement, options: {
+      sitekey: string
+      callback: (token: string) => void
+      'expired-callback': () => void
+      'error-callback': () => void
+      theme?: 'light' | 'dark' | 'auto'
+    }) => string
+    reset: (widgetId: string) => void
+    remove: (widgetId: string) => void
+  }
+
+  const renderWidget = () => {
+    if (!turnstileRef.current || !TURNSTILE_SITE_KEY) return
+    if (turnstileWidgetId.current) return // Already rendered
+
+    const turnstile = (window as unknown as { turnstile?: TurnstileAPI }).turnstile
+    if (!turnstile) return
+
+    turnstileWidgetId.current = turnstile.render(turnstileRef.current, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: (token: string) => {
+        setTurnstileToken(token)
+        setErrors((prev) => ({ ...prev, turnstile: undefined }))
+      },
+      'expired-callback': () => {
+        setTurnstileToken(null)
+      },
+      'error-callback': () => {
+        setTurnstileToken(null)
+        setErrors((prev) => ({ ...prev, turnstile: 'Verification failed. Please try again.' }))
+      },
+      theme: 'light',
+    })
+  }
+
+  const resetTurnstile = () => {
+    setTurnstileToken(null)
+    if (turnstileWidgetId.current && (window as unknown as { turnstile?: TurnstileAPI }).turnstile) {
+      try {
+        (window as unknown as { turnstile: TurnstileAPI }).turnstile.reset(turnstileWidgetId.current)
+      } catch {
+        // Widget may not exist
+      }
+    }
+  }
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {}
@@ -59,6 +143,11 @@ export default function ContactForm({ services }: ContactFormProps) {
       newErrors.message = 'Please provide more details about your project'
     }
 
+    // Turnstile validation (only if configured)
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      newErrors.turnstile = 'Please complete the verification'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -70,14 +159,40 @@ export default function ContactForm({ services }: ContactFormProps) {
 
     setIsSubmitting(true)
     setSubmitStatus('idle')
+    setErrorMessage('')
 
     try {
-      // Simulate API call - in production, this would POST to an API route
-      // that sends email via a service like SendGrid, Formspree, or saves to DB
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await fetch('/api/crm/lead', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          serviceType: formData.service,
+          message: formData.message,
+          formId: 'contact-page',
+          turnstileToken: turnstileToken,
+        }),
+      })
 
-      // TODO: In production, POST to an API route that handles email/storage
-      // Form data is ready to be sent: formData
+      const result = await response.json()
+
+      if (!response.ok) {
+        // Handle specific error cases
+        if (response.status === 429) {
+          setErrorMessage('Too many requests. Please wait a moment and try again.')
+        } else if (response.status === 403) {
+          setErrorMessage('Verification failed. Please refresh and try again.')
+          resetTurnstile()
+        } else {
+          setErrorMessage(result.error || 'Something went wrong. Please try again.')
+        }
+        setSubmitStatus('error')
+        return
+      }
 
       setSubmitStatus('success')
       setFormData({
@@ -88,7 +203,9 @@ export default function ContactForm({ services }: ContactFormProps) {
         message: '',
         contactMethod: 'either',
       })
+      resetTurnstile()
     } catch {
+      setErrorMessage('Network error. Please check your connection and try again.')
       setSubmitStatus('error')
     } finally {
       setIsSubmitting(false)
@@ -100,7 +217,6 @@ export default function ContactForm({ services }: ContactFormProps) {
   ) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
-    // Clear error when user starts typing
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }))
     }
@@ -132,7 +248,7 @@ export default function ContactForm({ services }: ContactFormProps) {
           <div>
             <p className="font-medium text-red-800">Something went wrong</p>
             <p className="text-sm text-red-600">
-              Please try again or contact us directly by phone.
+              {errorMessage || 'Please try again or contact us directly by phone.'}
             </p>
           </div>
         </div>
@@ -267,6 +383,16 @@ export default function ContactForm({ services }: ContactFormProps) {
           ))}
         </div>
       </div>
+
+      {/* Turnstile Widget */}
+      {TURNSTILE_SITE_KEY && (
+        <div>
+          <div ref={turnstileRef} className="flex justify-center" />
+          {errors.turnstile && (
+            <p className="mt-2 text-sm text-red-500 text-center">{errors.turnstile}</p>
+          )}
+        </div>
+      )}
 
       {/* Submit Button */}
       <button
