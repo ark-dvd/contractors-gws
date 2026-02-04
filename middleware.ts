@@ -41,9 +41,10 @@ function generateCSP(nonce: string): string {
     // Cloudflare Turnstile scripts loaded dynamically will be allowed by strict-dynamic
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ''}`,
     // style-src: Use nonce + hashes for Next.js internal styles (no unsafe-inline)
-    `style-src 'self' 'nonce-${nonce}' ${nextjsStyleHashes.join(' ')}`,
+    // Google Fonts CSS requires explicit allow (loaded via <link>)
+    `style-src 'self' 'nonce-${nonce}' ${nextjsStyleHashes.join(' ')} https://fonts.googleapis.com`,
     "img-src 'self' data: https://cdn.sanity.io https://images.unsplash.com https://lh3.googleusercontent.com",
-    "font-src 'self'",
+    "font-src 'self' https://fonts.gstatic.com",
     // connect-src: Sanity API + Cloudflare Turnstile verification
     "connect-src 'self' https://*.sanity.io https://challenges.cloudflare.com",
     "media-src 'self' https://cdn.sanity.io",
@@ -63,9 +64,11 @@ export async function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
   const cspHeader = generateCSP(nonce)
 
-  // Create response with CSP headers
+  // Forward nonce AND CSP to Next.js rendering layer via request headers
+  // Next.js reads CSP from request headers to apply nonce to internal scripts
   const requestHeaders = new Headers(request.headers)
   requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', cspHeader)
 
   // Admin route protection
   if (pathname.startsWith('/admin')) {
