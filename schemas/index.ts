@@ -2,6 +2,7 @@ import project from './project'
 import service from './service'
 import testimonial from './testimonial'
 import activeJob from './activeJob'
+import faq from './faq'
 import siteSettings from './siteSettings'
 
 // CRM Schemas
@@ -12,6 +13,7 @@ export const schemaTypes = [
   service,
   testimonial,
   activeJob,
+  faq,
   siteSettings,
   // CRM
   ...crmSchemas,

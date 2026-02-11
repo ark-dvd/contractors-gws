@@ -139,6 +139,17 @@ export interface ActiveJob {
   isActive: boolean
 }
 
+export interface Faq {
+  _id: string
+  _type: 'faq'
+  _createdAt?: string
+  question: string
+  answer: string
+  category?: string
+  order: number
+  isActive: boolean
+}
+
 export interface AboutStat {
   value: string
   label: string
@@ -431,6 +442,45 @@ const defaultTestimonials: Testimonial[] = [
 ]
 
 const defaultActiveJobs: ActiveJob[] = []
+
+const defaultFaqs: Faq[] = [
+  {
+    _id: 'demo-faq-1',
+    _type: 'faq',
+    question: 'How long does a typical kitchen remodel take?',
+    answer: 'A typical kitchen remodel takes 4-10 weeks depending on the scope of work. Minor updates like countertops and painting may take 2-3 weeks, while a full gut renovation with custom cabinetry can take 8-10 weeks.',
+    category: 'Process',
+    order: 1,
+    isActive: true,
+  },
+  {
+    _id: 'demo-faq-2',
+    _type: 'faq',
+    question: 'Do you handle permits and inspections?',
+    answer: 'Yes, we handle all necessary permits and coordinate inspections with local authorities. Permit requirements vary by project scope and municipality, and we take care of the entire process so you do not have to worry about it.',
+    category: 'Process',
+    order: 2,
+    isActive: true,
+  },
+  {
+    _id: 'demo-faq-3',
+    _type: 'faq',
+    question: 'What is the typical cost range for a bathroom renovation?',
+    answer: 'Bathroom renovations typically range from $15,000 to $50,000 or more depending on the scope. A basic refresh with new fixtures and paint starts around $15,000, while a full renovation with custom tile, walk-in shower, and heated floors can be $35,000-$50,000+.',
+    category: 'Pricing',
+    order: 3,
+    isActive: true,
+  },
+  {
+    _id: 'demo-faq-4',
+    _type: 'faq',
+    question: 'Are you licensed and insured?',
+    answer: 'Yes, we are fully licensed and insured. We carry comprehensive general liability insurance and workers compensation coverage. We are happy to provide proof of insurance upon request.',
+    category: 'General',
+    order: 4,
+    isActive: true,
+  },
+]
 
 const defaultSiteSettings: SiteSettings = {
   _id: 'demo-site-settings',
@@ -832,5 +882,38 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   } catch (error) {
     setDemoMode(`Sanity query failed: ${error}`)
     return defaultSiteSettings
+  }
+}
+
+export async function getFaqs(): Promise<Faq[]> {
+  if (!isSanityConfigured()) {
+    setDemoMode('Sanity not configured')
+    return defaultFaqs
+  }
+
+  try {
+    const client = getSanityClient()
+    const faqs = await client.fetch<Faq[]>(`
+      *[_type == "faq" && isActive == true] | order(order asc) {
+        _id,
+        _type,
+        _createdAt,
+        question,
+        answer,
+        category,
+        order,
+        isActive
+      }
+    `)
+
+    if (!faqs || faqs.length === 0) {
+      setDemoMode('No FAQs in Sanity')
+      return defaultFaqs
+    }
+
+    return faqs
+  } catch (error) {
+    setDemoMode(`Sanity query failed: ${error}`)
+    return defaultFaqs
   }
 }
