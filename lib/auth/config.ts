@@ -1,11 +1,16 @@
 import type { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
 
-// ALLOWED ADMIN EMAILS — ONLY these can access /admin
-// Store lowercase for normalized comparison
-const ALLOWED_ADMIN_EMAILS: string[] = [
-  'arik@daflash.com',
-]
+// ALLOWED ADMIN EMAILS — read from environment variable
+// Format in env: comma-separated emails, e.g. "arik@daflash.com,niv@beprojectsolutions.com"
+// Falls back to empty array if not set (no one can log in — intentional safety)
+function getAllowedAdminEmails(): string[] {
+  const envEmails = process.env.ALLOWED_ADMIN_EMAILS || ''
+  return envEmails
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(email => email.length > 0)
+}
 
 function normalizeEmail(email: string | null | undefined): string {
   return (email ?? '').trim().toLowerCase()
@@ -14,7 +19,8 @@ function normalizeEmail(email: string | null | undefined): string {
 function isAllowedAdmin(email: string | null | undefined): boolean {
   const normalized = normalizeEmail(email)
   if (!normalized) return false
-  return ALLOWED_ADMIN_EMAILS.includes(normalized)
+  const allowed = getAllowedAdminEmails()
+  return allowed.includes(normalized)
 }
 
 export const authOptions: NextAuthOptions = {
@@ -60,4 +66,4 @@ export const authOptions: NextAuthOptions = {
   },
 }
 
-export { isAllowedAdmin, ALLOWED_ADMIN_EMAILS }
+export { isAllowedAdmin }
